@@ -1,6 +1,6 @@
 # Hello Glean! The Bridge Between Agent and Glean
 
-Programmatic access to [Glean](https://glean.com) — query your organization's knowledge base from the command line, integrate it into AI agent workflows, or use it as a tool in VS Code with GitHub Copilot.
+Give your AI agents — Claude Code, GitHub Copilot, Cursor — productive chat access to your organization's knowledge in [Glean](https://glean.com). Ships with the MCP server *and* the Skill that teaches agents how Glean actually works (it's a chat agent over your enterprise knowledge graph, not a keyword search box — and that distinction is non-obvious).
 
 **No API keys. No admin setup. Just SSO.**
 
@@ -29,11 +29,10 @@ and no static client configured
 
 ## What is this?
 
-Glean's web and desktop apps are great for humans, but AI agents need programmatic access. This project bridges that gap — it lets your coding assistants and automation scripts tap into the same enterprise knowledge that Glean has already indexed and connected:
+This project exposes Glean to AI agents as a chat tool. Two pieces, designed to be used together:
 
-- **CLI** — Chat with Glean from your terminal. Ask questions, get answers with source links, save transcripts.
-- **MCP Server** — Connect Glean to coding agents like GitHub Copilot, Claude Code, or Cursor. Your AI assistant can look up internal docs, past decisions, and team knowledge while helping you code. Talks directly to Glean — no separate service needed.
-- **Agent Skill** — A drop-in skill at `skills/glean-mcp/` that teaches an agent how to use the MCP effectively (multi-turn chat, first-person SSO scoping, natural-language questions vs keyword bags).
+- **MCP Server** — exposes `glean_chat` and `glean_reset_session` to any MCP-compatible coding agent (Claude Code, GitHub Copilot, Cursor, …). The agent can chat with Glean while helping you work.
+- **Agent Skill** (`skills/glean-mcp/`) — the operating manual for the MCP. Without it, agents treat `glean_chat` like a keyword search box and get shallow, generic answers. With it, they multi-turn within a session, use first-person SSO scoping, and cite the artifacts Glean returns. **Install both — the Skill is what makes the MCP useful in practice.**
 
 ## Prerequisites
 
@@ -49,74 +48,19 @@ git clone git@github.com:one-thd/my-glean.git
 cd my-glean
 uv sync
 uv run python -m playwright install chromium
-
-# Chat with Glean (opens browser for SSO on first run)
-uv run python -m glean_cli.cli --tenant-url https://your-tenant.glean.com --prompt "hello Glean?"
 ```
 
-> **Finding your tenant URL:** Sign in to Glean in your browser. The URL bar will show something like
-> `https://app.glean.com/?qe=https%3A%2F%2Fyour-tenant.glean.com` — the part after `qe=` (decoded) is your tenant URL.
+Now wire up your agent and install the skill.
 
-On the first run, a browser window opens for SSO login. Complete the sign-in, then the CLI sends your prompt and saves the response to a local Markdown file.
+### 1. Add the MCP server to your agent
 
-After the first run, your session is saved to `~/.glean_cli/profile/` and the tenant URL is remembered in `~/.glean_cli/config.json` — subsequent runs need neither a browser nor `--tenant-url`:
+**Claude Code:**
 
 ```bash
-# No --tenant-url needed after first run
-uv run python -m glean_cli.cli --prompt "what were the Q4 goals?"
+claude mcp add glean -- uv run --directory "$(pwd)" python -m glean_cli.mcp_server
 ```
 
-## How it works
-
-```
-You / AI Agent
-    |
-    v
-┌─────────────┐     ┌──────────────────────┐
-│  CLI        │     │  MCP Server          │
-│  (terminal) │     │  (VS Code / Copilot, │
-│             │     │   Claude Code,       │
-│             │     │   Cursor)            │
-└──────┬──────┘     └──────────┬───────────┘
-       │                       │
-       │  HTTPS (Playwright cookies)
-       v                       v
-       ┌──────────────────────────────────┐
-       │        Glean Tenant APIs         │
-       └──────────────────────────────────┘
-```
-
-Both the **CLI** and **MCP Server** talk directly to Glean using Playwright session cookies — no intermediate service or admin-provisioned API token needed.
-
-## Usage
-
-### CLI
-
-```bash
-# Interactive multi-turn chat
-uv run python -m glean_cli.cli --tenant-url https://your-tenant.glean.com
-
-# Single prompt with transcript
-uv run python -m glean_cli.cli --tenant-url https://your-tenant.glean.com \
-  --prompt "summarize the Q4 planning doc" \
-  -o summary.md
-```
-
-Options:
-- `--tenant-url` — Your Glean tenant URL. Auto-detected after first run; only needed once.
-- `--prompt` — First prompt; if omitted, you'll be asked interactively
-- `--headless` / `--no-browser` — Skip opening a browser window (requires existing session)
-- `--channel` — Browser channel to use instead of bundled Chromium (e.g. `chrome`, `msedge`). Use this if SSO fails in the default browser.
-- `--raw` — Print raw JSON stream instead of aggregated text
-- `-o, --output` — Save transcript to a Markdown file
-
-### MCP Server (for VS Code, Copilot, Claude Code, Cursor)
-
-The MCP server lets AI coding agents query Glean as a tool. It talks directly to Glean — no separate service needed.
-
-If you've already used the CLI once (which saves your tenant URL and session), the MCP server needs **zero configuration** — it auto-detects the tenant URL and reuses your session cookies. If the session has expired, it automatically opens a browser for SSO login.
-
-**VS Code / Copilot** — Add to your `.vscode/mcp.json` or global MCP config:
+**VS Code / Copilot** — add to your `.vscode/mcp.json` or global MCP config:
 
 ```json
 {
@@ -134,26 +78,14 @@ If you've already used the CLI once (which saves your tenant URL and session), t
 }
 ```
 
-> **Note:** `--tenant-url` is optional if you've run the CLI before. To be explicit or override:
-> `"--tenant-url", "https://your-tenant.glean.com"`
+The first time the agent calls `glean_chat`, a browser opens for SSO login. After that, your session is cached in `~/.glean_cli/profile/` and reused — no further setup.
 
-**Claude Code:**
+> **Finding your tenant URL:** Sign in to Glean in your browser. The URL bar shows something like `https://app.glean.com/?qe=https%3A%2F%2Fyour-tenant.glean.com` — the part after `qe=` (decoded) is your tenant URL. Pass it explicitly with `"--tenant-url", "https://your-tenant.glean.com"` in the args list if auto-detection doesn't pick it up.
 
-```bash
-claude mcp add glean -- uv run --directory /path/to/hello-glean python -m glean_cli.mcp_server
-```
-
-**3. Use it** — ask your AI assistant things like:
-- "Use Glean to find our API rate limiting policy"
-- "Search Glean for the onboarding checklist"
-- "Ask Glean what was decided in last week's architecture review"
-
-Tools exposed: `glean_chat` (chat with Glean) and `glean_reset_session` (start fresh conversation).
-
-**4. Install the agent skill (recommended)** — Glean is a chat agent, not a search engine, and that distinction is non-obvious from the tool name alone. The `skills/glean-mcp/` directory contains an Agent Skill that teaches an LLM agent how to use Glean effectively (multi-turn within a session, first-person SSO scoping, natural-language questions vs keyword bags). Install it:
+### 2. Install the Agent Skill
 
 ```bash
-# For Claude Code (user scope)
+# Symlink so the skill stays in sync with this repo
 mkdir -p ~/.claude/skills
 ln -s "$(pwd)/skills/glean-mcp" ~/.claude/skills/glean-mcp
 
@@ -161,21 +93,55 @@ ln -s "$(pwd)/skills/glean-mcp" ~/.claude/skills/glean-mcp
 cp -r skills/glean-mcp ~/.claude/skills/
 ```
 
-The agent will auto-load the skill whenever it's about to call `glean_chat`. See `skills/glean-mcp/SKILL.md` for the operating manual, plus `skills/glean-mcp/patterns/` (reusable patterns) and `skills/glean-mcp/examples/` (worked workflows).
+The agent auto-loads the skill whenever it's about to call `glean_chat`. See `skills/glean-mcp/SKILL.md` for the operating manual, plus `skills/glean-mcp/patterns/` (reusable patterns) and `skills/glean-mcp/examples/` (worked workflows).
+
+### 3. Try it
+
+Ask your agent things like:
+
+- "Use Glean to find our API rate limiting policy"
+- "Ask Glean what was decided in last week's architecture review"
+- "Have Glean summarize my team's activity this past week"
+
+The Skill will steer the agent toward natural-language questions, first-person scoping, and multi-turn drilling — so the answers are grounded and cited rather than vague.
+
+## How it works
+
+```
+       AI Agent (Claude Code, Copilot, Cursor, …)
+                        │
+                        │  loads operating manual
+                        ▼
+              ┌──────────────────┐
+              │   Agent Skill    │  (skills/glean-mcp/)
+              └────────┬─────────┘
+                       │  shapes calls to
+                       ▼
+              ┌──────────────────┐
+              │   MCP Server     │  (glean_chat, glean_reset_session)
+              └────────┬─────────┘
+                       │  HTTPS (Playwright cookies)
+                       ▼
+              ┌──────────────────┐
+              │  Glean Tenant    │
+              └──────────────────┘
+```
+
+The **MCP Server** talks directly to Glean using Playwright session cookies — no intermediate service or admin-provisioned API token needed. The **Skill** is markdown consumed by the agent; it doesn't run code itself but shapes how the agent calls `glean_chat`.
 
 ## Session & Authentication
 
 - Sessions are stored in `~/.glean_cli/profile/` (Playwright persistent context).
 - Tenant URL and config are saved in `~/.glean_cli/config.json` — auto-detected on subsequent runs.
 - No API keys, tokens, or `.env` files needed — authentication is handled entirely through SSO cookies.
-- If your session expires, the MCP server automatically opens a browser for re-login. The CLI does the same.
+- If your session expires, the MCP server automatically opens a browser for re-login.
 
 ## Without uv
 
 ```bash
 pip install -r requirements.txt
 python -m playwright install chromium
-python -m glean_cli.cli --tenant-url https://your-tenant.glean.com --prompt "..."
+python -m glean_cli.mcp_server --tenant-url https://your-tenant.glean.com
 ```
 
 ## Releasing
