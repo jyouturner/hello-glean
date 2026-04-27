@@ -32,7 +32,7 @@ and no static client configured
 This project exposes Glean to AI agents as a chat tool. Two pieces, designed to be used together:
 
 - **MCP Server** — exposes `glean_chat` and `glean_reset_session` to any MCP-compatible coding agent (Claude Code, GitHub Copilot, Cursor, …). The agent can chat with Glean while helping you work.
-- **Agent Skill** (`skills/glean-mcp/`) — the operating manual for the MCP. Without it, agents treat `glean_chat` like a keyword search box and get shallow, generic answers. With it, they multi-turn within a session, use first-person SSO scoping, and cite the artifacts Glean returns. **Install both — the Skill is what makes the MCP useful in practice.**
+- **Agent Skill** (`skills/glean-chat/`) — the operating manual for the MCP. Without it, agents treat `glean_chat` like a keyword search box and get shallow, generic answers. With it, they multi-turn within a session, use first-person SSO scoping, and cite the artifacts Glean returns. **Install both — the Skill is what makes the MCP useful in practice.**
 
 ## Prerequisites
 
@@ -87,13 +87,13 @@ The first time the agent calls `glean_chat`, a browser opens for SSO login. Afte
 ```bash
 # Symlink so the skill stays in sync with this repo
 mkdir -p ~/.claude/skills
-ln -s "$(pwd)/skills/glean-mcp" ~/.claude/skills/glean-mcp
+ln -s "$(pwd)/skills/glean-chat" ~/.claude/skills/glean-chat
 
 # Or copy if you prefer (won't auto-update with this repo)
-cp -r skills/glean-mcp ~/.claude/skills/
+cp -r skills/glean-chat ~/.claude/skills/
 ```
 
-The agent auto-loads the skill whenever it's about to call `glean_chat`. See `skills/glean-mcp/SKILL.md` for the operating manual, plus `skills/glean-mcp/patterns/` (reusable patterns) and `skills/glean-mcp/examples/` (worked workflows).
+The agent auto-loads the skill whenever it's about to call `glean_chat`. See `skills/glean-chat/SKILL.md` for the operating manual, plus `skills/glean-chat/patterns/` (reusable patterns) and `skills/glean-chat/examples/` (worked workflows).
 
 ### 3. Try it
 
@@ -113,7 +113,7 @@ The Skill will steer the agent toward natural-language questions, first-person s
                         │  loads operating manual
                         ▼
               ┌──────────────────┐
-              │   Agent Skill    │  (skills/glean-mcp/)
+              │   Agent Skill    │  (skills/glean-chat/)
               └────────┬─────────┘
                        │  shapes calls to
                        ▼

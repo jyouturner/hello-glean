@@ -1,5 +1,5 @@
 ---
-name: glean-mcp
+name: glean-chat
 description: |
   Use whenever calling the Glean MCP tools (`glean_chat`, `glean_reset_session`).
   Glean is a CHAT agent, not a search engine — multi-turn within a session_id,
