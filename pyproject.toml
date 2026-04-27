@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "glean-cli"
+version = "0.1.0"
+description = "CLI to sign in via SSO and query Glean chat API"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "playwright>=1.46.0",
+  "httpx>=0.24",
+  "mcp>=1.0.0",
+]
+
+[project.scripts]
+glean = "glean_cli.cli:main"
+glean-mcp = "glean_cli.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/glean_cli"]
+
+# Note: Older uv versions do not support [tool.uv.scripts].
+# We omit uv-specific script config for compatibility.
